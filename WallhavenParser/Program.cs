@@ -17,35 +17,21 @@ namespace WallhavenParser
         private Random _random = new Random();
         private const string Query = "geometry";
 
-        private async Task<int> GetPageCount(string query)
-        {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(await _http.GetStringAsync($"http://alpha.wallhaven.cc/search?q={HttpUtility.UrlEncode(query)}"));
-            var pageCountString = doc.DocumentNode.SelectSingleNode("//section[@class='thumb-listing-page']/header")?.InnerText?.Split(' ')?.LastOrDefault();
-            return pageCountString == null ? 0 : int.Parse(pageCountString);
-        }
+        private async Task<HtmlNode> ParseDocumentFromURL(string url) =>
+            await new Func<HtmlDocument, Task<HtmlNode>>(async (d) => { d.LoadHtml(await _http.GetStringAsync(url)); return d.DocumentNode; })(new HtmlDocument());
 
-        private async Task<int[]> GetImages(string query, int page)
-        {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(await _http.GetStringAsync($"http://alpha.wallhaven.cc/search?q={HttpUtility.UrlEncode(query)}&page={page}"));
-            return doc.DocumentNode.SelectNodes("//a[@class='preview']").Select(a => int.Parse(a.Attributes["href"].Value.Split('/').Last())).ToArray();
-        }
+        private int TryParseInt(string s) => s == null ? 0 : int.Parse(s);
 
-        private async Task<string> GetImage(int id)
-        {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(await _http.GetStringAsync($"http://alpha.wallhaven.cc/wallpaper/{id}"));
-            var imageUrl = doc.DocumentNode.SelectSingleNode("//img[@id='wallpaper']").Attributes["src"].Value;
-            if(new[] { Uri.UriSchemeHttp, Uri.UriSchemeHttps }.Where(s => s == new Uri(imageUrl).Scheme).Count() == 0)
-            {
-                return "http:" + imageUrl;
-            }
-            else
-            {
-                return imageUrl;
-            }
-        }
+        private async Task<int> GetPageCount(string query) =>  TryParseInt((await ParseDocumentFromURL($"http://alpha.wallhaven.cc/search?q={HttpUtility.UrlEncode(query)}"))
+            .SelectSingleNode("//section[@class='thumb-listing-page']/header")?.InnerText?.Split(' ')?.LastOrDefault());
+
+        private async Task<int[]> GetImages(string query, int page) => (await ParseDocumentFromURL($"http://alpha.wallhaven.cc/search?q={HttpUtility.UrlEncode(query)}&page={page}"))
+            .SelectNodes("//a[@class='preview']").Select(a => int.Parse(a.Attributes["href"].Value.Split('/').Last())).ToArray();
+
+        private string FixScheme(string url) => new[] { Uri.UriSchemeHttp, Uri.UriSchemeHttps }.Where(s => s == new Uri(url).Scheme).Count() == 0 ? "http:" + url : url;
+
+        private async Task<string> GetImage(int id) => FixScheme((await ParseDocumentFromURL($"http://alpha.wallhaven.cc/wallpaper/{id}"))
+            .SelectSingleNode("//img[@id='wallpaper']").Attributes["src"].Value);
 
         private async Task MainAsync()
         {
@@ -68,13 +54,10 @@ namespace WallhavenParser
                     }
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(0.1));
+                await Task.Delay(TimeSpan.FromMinutes(30));
             }
         }
 
-        static void Main(string[] args)
-        {
-            AsyncContext.Run(() => new Program().MainAsync());
-        }
+        static void Main(string[] args) => AsyncContext.Run(() => new Program().MainAsync());
     }
 }
