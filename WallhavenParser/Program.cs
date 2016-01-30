@@ -22,7 +22,7 @@ namespace WallhavenParser
 
         private int TryParseInt(string s) => s == null ? 0 : int.Parse(s);
 
-        private async Task<int> GetPageCount(string query) =>  TryParseInt((await ParseDocumentFromURL($"http://alpha.wallhaven.cc/search?q={HttpUtility.UrlEncode(query)}"))
+        private async Task<int> GetPageCount(string query) => TryParseInt((await ParseDocumentFromURL($"http://alpha.wallhaven.cc/search?q={HttpUtility.UrlEncode(query)}"))
             .SelectSingleNode("//section[@class='thumb-listing-page']/header")?.InnerText?.Split(' ')?.LastOrDefault());
 
         private async Task<int[]> GetImages(string query, int page) => (await ParseDocumentFromURL($"http://alpha.wallhaven.cc/search?q={HttpUtility.UrlEncode(query)}&page={page}"))
