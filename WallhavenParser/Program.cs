@@ -32,6 +32,21 @@ namespace WallhavenParser
             return doc.DocumentNode.SelectNodes("//a[@class='preview']").Select(a => int.Parse(a.Attributes["href"].Value.Split('/').Last())).ToArray();
         }
 
+        private async Task<string> GetImage(int id)
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(await _http.GetStringAsync($"http://alpha.wallhaven.cc/wallpaper/{id}"));
+            var imageUrl = doc.DocumentNode.SelectSingleNode("//img[@id='wallpaper']").Attributes["src"].Value;
+            if(new[] { Uri.UriSchemeHttp, Uri.UriSchemeHttps }.Where(s => s == new Uri(imageUrl).Scheme).Count() == 0)
+            {
+                return "http:" + imageUrl;
+            }
+            else
+            {
+                return imageUrl;
+            }
+        }
+
         private async Task MainAsync()
         {
             while (true)
@@ -47,13 +62,13 @@ namespace WallhavenParser
                 {
                     var image = images[_random.Next(images.Length)];
                     using (var file = File.Open($"C:\\Wallpapers\\{image}.jpg", FileMode.Create))
-                    using (var download = await _http.GetStreamAsync($"http://wallpapers.wallhaven.cc/wallpapers/full/wallhaven-{image}.jpg"))
+                    using (var download = await _http.GetStreamAsync(await GetImage(image)))
                     {
                         await download.CopyToAsync(file);
                     }
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(30));
+                await Task.Delay(TimeSpan.FromMinutes(0.1));
             }
         }
 
